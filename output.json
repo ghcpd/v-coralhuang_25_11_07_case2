@@ -1,0 +1,19 @@
+{
+  "detected_problems": [
+    "Returning cls.query.filter_by(id=0) for empty results is confusing and fragile",
+    "No canonical empty-query helper on models",
+    "No tests covering empty and inconsistent index cases"
+  ],
+  "fixes_applied": [
+    "Added SearchableMixin.empty_search() returning cls.query.filter(False)",
+    "Refactored SearchableMixin.search() to always return (query, total) and use empty_search() when ids empty or total==0",
+    "Preserved index ordering using SQLAlchemy case/order_by when ids present",
+    "Added tests covering empty result, misreported totals, and order preservation",
+    "Added README.md explaining the rationale and pattern"
+  ],
+  "tests_run": false,
+  "test_run_attempted": true,
+  "test_results": null,
+  "test_run_error": "pytest not available in the configured virtualenv (attempted to run via the environment python but module not found).",
+  "notes": "To run tests locally: create/activate the venv, install deps, then run pytest. Example PowerShell commands are provided in the repository `run_test.sh`. Alternatively run:\n\npython -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -U pip; pip install -r requirements.txt || pip install pytest flask flask_sqlalchemy; .\.venv\Scripts\python.exe -m pytest -q"
+}
