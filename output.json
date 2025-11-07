@@ -1,0 +1,29 @@
+{
+  "detected_problems": [
+    "SearchableMixin.query_index returned a SQLAlchemy Query constructed with filter_by(id=0) when total == 0, which is confusing and unsafe.",
+    "Higher-level search() simply forwarded the Query object instead of building a consistent response and did not handle empty ids list safely.",
+    "No canonical empty search helper existed; developers used ad-hoc patterns leading to inconsistent behavior.",
+    "Tests did not cover empty/edge branches, so regressions could happen unnoticed."
+  ],
+  "fixes_applied": [
+    "Refactored SearchableMixin.query_index to return (ids, total) representing results from the search backend.",
+    "Implemented SearchableMixin.empty_search() which returns cls.query.filter(False) — an explicit empty SQLAlchemy Query.",
+    "Refactored SearchableMixin.search to construct a consistent (query, total) return value. It handles empty ids explicitly and preserves index order using a CASE expression when ids are present.",
+    "Search wrapper now trusts the ids list length and sets total accordingly (len(ids)), avoiding misreported totals from the index.",
+    "Added tests to cover empty search behavior, empty ids with positive reported total, ordering preservation, and handling of missing rows."
+  ],
+  "public_api_changes": {
+    "query_index": "Changed signature and return value: was (Query, total) -> now (ids, total). This is an internal change but should be considered if external code depends on it.",
+    "search": "Return contract unchanged for public callers: always returns (Query, total)."
+  },
+  "tests": {
+    "ran": true,
+    "summary": "4 passed",
+    "details": {
+      "test_empty_search_returns_empty_query_object": "passed",
+      "test_search_handles_empty_ids_with_positive_total": "passed",
+      "test_search_returns_ordered_rows_when_ids_provided": "passed",
+      "test_search_handles_missing_rows": "passed"
+    }
+  }
+}
