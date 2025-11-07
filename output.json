@@ -1,0 +1,22 @@
+{
+  "detected_problems": [
+    "SearchableMixin.query_index returns cls.query.filter_by(id=0) for empty search results: looks like real query and can match actual rows.",
+    "No canonical empty query helper across models; tests don't assert for explicit empty semantics.",
+    "Search returns different shapes in empty vs non-empty branches; callers have to detect ad hoc conditions.",
+    "Search backend misreporting (total>0 but ids==[]) is not handled; caller cannot distinguish no results from an index error."
+  ],
+  "fixes_applied": [
+    "Added SearchableMixin.empty_search which returns cls.query.filter(False) and marks the returned query with _is_empty_search for deterministic tests.",
+    "Refactored SearchableMixin.query_index to return an explicit empty query when ids list is empty; avoid filter_by(id=0).",
+    "Ensured SearchableMixin.search returns a consistent (query, total) tuple; in empty case total == 0 and query is empty_search().",
+    "Added tests to assert empty-search behavior and handling of misreported totals."
+  ],
+  "tests_run": "not-run",
+  "tests_notes": "Pytest was not executed in this environment. If you run pytest locally, the tests under test_search_empty.py cover the empty branch, non-empty branch, and the case where index reports non-zero but returns no ids. Update your app's test setup if Post.query requires an actual database session.",
+  "public_interface_changes": "No change to public SearchableMixin.search contract: it still returns (query, total) where query is a SQLAlchemy query; empty case uses cls.empty_search().",
+  "recommendations": [
+    "Prefer `cls.query.filter(False)` (or your DB-specific equivalent) over `filter_by(id=0)` to represent an explicit empty result.",
+    "If you prefer returning lists instead of queries, change the contract explicitly and update callers accordingly — tests and docs must reflect that change.",
+    "Add integration tests with a test database to ensure .all() and .paginate() behave as expected using the empty query."
+  ]
+}
