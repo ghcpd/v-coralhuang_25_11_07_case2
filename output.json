@@ -1,0 +1,31 @@
+{
+  "detected_problems": [
+    "Use of filter_by(id=0) to represent empty query is ambiguous and can accidentally match real rows with id==0",
+    "query_index returned a SQLAlchemy Query object representing an empty result, mixing responsibilities and confusing callers",
+    "No consistent, canonical 'empty' query across models",
+    "Tests did not cover the empty-ids branch nor misreported total scenarios"
+  ],
+  "fixes_applied": [
+    "Added SearchableMixin.empty_search() returning cls.query.filter(False) to represent an explicit, unambiguous empty query",
+    "Refactored SearchableMixin.query_index() to return (ids, total) rather than a query — the discretization between index ids and DB query construction is clearer",
+    "Refactored SearchableMixin.search() to always return a (Query, total) tuple where Query is either a real selective query or cls.empty_search(); When ids are empty, total is set to 0",
+    "Preserved index ordering by using a CASE expression to order DB results according to the returned id list",
+    "Tests added to cover empty results, misreported totals, and index ordering + missing DB rows"
+  ],
+  "behavioral_changes": [
+    "The public contract of SearchableMixin.search remains the same: it returns (query, total) where query is a SQLAlchemy Query object. Downstream callers that consume the query (e.g. .all(), .paginate()) will get consistent behavior.",
+    "The contract of SearchableMixin.query_index changed from returning (Query, total) to returning (ids, total). This is an internal API change; if external code used query_index assuming a Query was returned, it must be updated.",
+    "SearchableMixin.search now trusts the length of returned ids (len(ids)) when computing total. If a search backend misreports total but returns an empty ids list, we treat the result as zero hits.",
+    "ID ordering from the search index is preserved in DB results via CASE ordering; missing DB rows are ignored but relative order is preserved for rows that do exist"
+  ],
+  "tests": {
+    "files": ["test_search_empty.py"],
+    "results_summary": "3 passed, 0 failed",
+    "details": [
+      "test_empty_search_returns_empty_list: ensures empty result returns total=0 and empty list",
+      "test_index_returns_empty_ids_misreported_total: verifies that empty ids but non-zero reported total are treated as total=0",
+      "test_search_preserves_index_order_and_ignores_missing_ids: checks that ordering from index is preserved and missing DB rows are ignored"
+    ]
+  },
+  "notes": "No breaking user-facing API changes were introduced to 'search'; only 'query_index' signature changed. If your code depends on 'query_index' returning a Query object, update it to accept (ids, total) instead and reconstruct the Query via the model's 'search' implementation or similar."
+}
