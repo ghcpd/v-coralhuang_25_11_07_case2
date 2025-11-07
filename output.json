@@ -1,0 +1,25 @@
+{
+  "problems_detected": [
+    "Use of cls.query.filter_by(id=0) to represent empty search results",
+    "No canonical empty query helper available",
+    "search returns ambiguous types or results when index misreports ids/total",
+    "Tests do not cover the total==0 branch or misreported totals"
+  ],
+  "fixes_applied": [
+    "Added SearchableMixin.empty_search() which returns cls.query.filter(False)",
+    "Refactored SearchableMixin.search() to always return (query, total) and to use empty_search when ids list is empty",
+    "Normalized total to 0 when ids list is empty even if backend misreported a positive total",
+    "Added tests to cover empty search and misreported total scenarios",
+    "Documented rationale in README.md"
+  ],
+  "tests": {
+    "ran_in_environment": false,
+    "notes": "This environment lacks a configured Flask app and DB; tests are present but have not been executed here. Use run_test.sh to execute in a proper environment."
+  },
+  "public_api_changes": "No change: search still returns (query, total) tuple but empty branch now returns cls.empty_search() instead of filter_by(id=0).",
+  "next_steps": [
+    "Integrate this pattern across other models if different implementations exist",
+    "Add integration tests with a test database to validate SQL rendering and ordering",
+    "Consider exposing an option to return lists instead of queries if that better fits consumers."
+  ]
+}
