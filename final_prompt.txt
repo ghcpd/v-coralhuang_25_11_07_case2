@@ -1,0 +1,77 @@
+You are a backend reliability engineer responsible for auditing and fixing search-related result-shaping problems in a Flask + SQLAlchemy application that uses a SearchableMixin to integrate with a full-text/search index.
+
+The current implementation shows an incorrect/surprising behavior when the underlying search service returns no matches: the method query_index() (or the higher-level Model.search(...) wrapper) returns a SQLAlchemy Query object constructed as cls.query.filter_by(id=0) when total == 0. This pattern superficially produces an empty result on .all(), but it introduces several UX and integration issues.
+
+You must rewrite the model-side search helpers so that the “no result” branch is explicit, type-consistent, and safe for downstream consumers such as pagination, API serializers, admin UIs, and background tasks.
+
+Your work should identify, fix, and test the following potential problems:
+
+Problem: When the search backend returns (ids, total) with total == 0, the code returns cls.query.filter_by(id=0).
+Impact:
+
+Confuses callers and frontend when they log/inspect the query because it looks like a real filter.
+
+Some pagination/URL helpers treat it as a real query and produce odd routes.
+
+If a row with id == 0 ever exists (imported legacy data, test fixtures), the “empty” branch stops being empty.
+
+Problem: The method does not distinguish between “no match” and “search failed/empty ids list,” so upstream error handling cannot tell UI to render “no results” vs “search is unavailable.”
+
+Problem: The method returns a different kind of object depending on the search outcome (sometimes a real Query, sometimes an effectively-empty query). Callers that assume “I always get a list-like object” have to add ad-hoc checks.
+
+Problem: There is no canonical “empty query”/“empty result” constructor on the model, so every developer invents their own pattern (filter_by(id=0), filter(False), empty list, etc.), creating inconsistent behavior across models.
+
+Problem: Tests do not cover the branch where total == 0, so regressions go unnoticed.
+
+Your tasks:
+
+Refactor the search/helper method (e.g. @classmethod def search(cls, expression, page, per_page): ...) so that:
+
+When total == 0, it returns an explicit empty result that the caller can safely consume.
+
+The return contract is clearly documented, for example:
+
+EITHER always return (query, total) where query is a SQLAlchemy query, and in the empty case use cls.query.filter(False) (this compiles to WHERE 0=1 and is unambiguous);
+
+OR always return (results_list, total) where in the empty case it is simply ([], 0).
+
+The chosen contract must be consistent across success and empty branches.
+
+Add a model-level “empty search” helper, for example:
+
+@classmethod
+def empty_search(cls):
+    return cls.query.filter(False)
+
+
+and use it in the empty branch to avoid ad-hoc id=0 hacks.
+
+Make the code resilient to an empty ids list returned from the index, even when total > 0 was misreported by the backend. In that case, prefer to trust the actual ids list.
+
+Update or create tests to cover:
+
+search returns zero results
+
+search returns some ids, but db has fewer/more rows than the index claims
+
+search returns ids out of order (ensure you preserve the index order if that is a business requirement)
+
+callers that immediately do .all()/paginate on the returned object do not crash and do not produce confusing SQL
+
+Create or update the following deliverables:
+
+models.py — fixed mixin/model search code with explicit empty branch
+
+test_search_empty.py — tests for the empty-result code path
+
+README.md — short note describing why filter_by(id=0) is discouraged and what pattern to use instead
+
+output.json — a structured report listing the detected problems, the fixes you applied, and the test results (pass/fail)
+
+(optional) run_test.sh — a one-click runner that installs deps and runs pytest
+
+Execution requirements:
+
+Do not fabricate test results. If you cannot run pytest in this environment, report that explicitly in output.json.
+
+If after your change the public return contract changes (e.g. from (query, total) to (list, total)), call it out in the report so that callers can migrate.
